@@ -31,3 +31,12 @@ number = do
       b <- many digit
       return $ Num (a:b)
 
+string :: Parser Token
+string = do
+  a <- between (char '"') (char '"') $ many letter
+  return $ Str a
+
+chr :: Parser Token
+chr = do
+  a <- between (char '\'') (char '\'') letter
+  return $ Char a

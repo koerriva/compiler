@@ -2,17 +2,18 @@ module Main where
 
 import Lang.Parser
 import Lang.Type
-import Text.Parsec
+import Text.Parsec hiding (string)
+import Text.ParserCombinators.Parsec hiding (string)
 
 main :: IO ()
 main = do
-  case parse identifier "" "voisd" of
-    Left err -> print err
-    Right xs -> print xs
-  case parse number "" "0xffff" of
-      Left err -> print err
-      Right xs -> print xs
-  case parse number "" "007777" of
-        Left err -> print err
-        Right xs -> print xs
+  test identifier "void"
+  test number "0xffff"
+  test number "007777"
+  test chr "'x'"
+  test string "\"test\""
 
+test :: Parser Token -> String -> IO ()
+test p s = case parse p "" s of
+  Left err -> print err
+  Right xs -> print xs
