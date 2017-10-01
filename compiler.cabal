@@ -16,9 +16,17 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Lang.Parser
-                    ,  Lang.Type
+                    ,  Lang.Lexer
+                    ,  Lang.Syntax
+                    ,  Lang.Codegen
+                    ,  Lang.Emit
   build-depends:       base >= 4.7 && < 5
                     ,  parsec
+                    ,  mtl
+                    ,  llvm-hs-pure
+                    ,  llvm-hs
+                    ,  containers
+                    ,  bytestring
   default-language:    Haskell2010
 
 executable compiler
@@ -28,6 +36,9 @@ executable compiler
   build-depends:       base
                      , compiler
                      , parsec
+                     , mtl
+                     , haskeline
+                     , llvm-hs-pure
   default-language:    Haskell2010
 
 test-suite compiler-test

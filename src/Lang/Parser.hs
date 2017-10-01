@@ -1,42 +1,89 @@
 module Lang.Parser where
 
-import Lang.Type
-import Text.ParserCombinators.Parsec
+import Text.Parsec
+import Text.Parsec.String (Parser)
 
-identifier :: Parser Token
-identifier = do
-  a <- letter <|> char '_'
-  b <- many (alphaNum <|> char '_' )
-  let name = a:b
-  return $ Id name
+import qualified Text.Parsec.Expr as Ex
+import qualified Text.Parsec.Token as Tok
 
-number :: Parser Token
-number = do
-  a <- digit
-  case a of
-    '0' -> do
-      b <- alphaNum
-      case b of
-        'x' -> do
-          c <- many hexDigit
-          return $ Num (a : b : c)
-        'b' -> do
-          c <- many (oneOf "01")
-          return $ Num (a : b : c)
-        _ -> do
-          o <- lookAhead digit
-          c <- many octDigit
-          return $ Num (a:o:c)
-    _ -> do
-      b <- many digit
-      return $ Num (a:b)
+import Lang.Lexer
+import Lang.Syntax
 
-string :: Parser Token
-string = do
-  a <- between (char '"') (char '"') $ many letter
-  return $ Str a
+binary s f = Ex.Infix (reservedOp s >> return (BinOp f))
 
-chr :: Parser Token
-chr = do
-  a <- between (char '\'') (char '\'') letter
-  return $ Char a
+table = [[binary "*" Times Ex.AssocLeft,
+          binary "/" Divide Ex.AssocLeft]
+        ,[binary "+" Plus Ex.AssocLeft,
+          binary "-" Minus Ex.AssocLeft]]
+
+int :: Parser Expr
+int = do
+  n <- integer
+  return $ Float (fromInteger n)
+
+floating :: Parser Expr
+floating = do
+  n <- float
+  return $ Float n
+
+expr :: Parser Expr
+expr = Ex.buildExpressionParser table factor
+
+variable :: Parser Expr
+variable = do
+  var <- identifier
+  return $ Var var
+
+function :: Parser Expr
+function = do
+  reserved "def"
+  name <- identifier
+  args <- parens $ many variable
+  body <- expr
+  return $ Function name args body
+
+extern :: Parser Expr
+extern = do
+  reserved "extern"
+  name <- identifier
+  args <- parens $ many variable
+  return $ Extern name args
+
+call :: Parser Expr
+call = do
+  name <- identifier
+  args <- parens $ commaSep expr
+  return $ Call name args
+
+factor :: Parser Expr
+factor = try floating
+      <|> try int
+      <|> try extern
+      <|> try function
+      <|> try call
+      <|> variable
+      <|> parens expr
+
+defn :: Parser Expr
+defn = try extern
+    <|> try function
+    <|> expr
+
+contents :: Parser a -> Parser a
+contents p = do
+  Tok.whiteSpace lexer
+  r <- p
+  eof
+  return r
+
+toplevel :: Parser [Expr]
+toplevel = many $ do
+    def <- defn
+    reservedOp ";"
+    return def
+
+parseExpr :: String -> Either ParseError Expr
+parseExpr = parse (contents expr) "<stdin>"
+
+parseToplevel :: String -> Either ParseError [Expr]
+parseToplevel = parse (contents toplevel) "<stdin>"
