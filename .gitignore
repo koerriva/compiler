@@ -5,3 +5,5 @@
 将删除 out/
 将删除 Makefile
 将删除 lib/cbits.so
+
+.idea/
