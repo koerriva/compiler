@@ -4,6 +4,7 @@ import Lang.Parser
 import Lang.Codegen
 import Lang.Emit
 
+import Control.Monad (void)
 import Control.Monad.Trans
 import System.IO
 import System.Environment
@@ -12,7 +13,7 @@ import System.Console.Haskeline
 import qualified LLVM.AST as AST
 
 initModule :: AST.Module
-initModule = emptyModule "my cool jit"
+initModule = emptyModule "default model"
 
 process :: AST.Module -> String -> IO (Maybe AST.Module)
 process modo source = do
@@ -43,5 +44,5 @@ main :: IO ()
 main = do
   args <- getArgs
   case args of
-    []      -> repl
-    [fname] -> processFile fname >> return ()
+    [] -> repl
+    [fname] -> void (processFile fname)

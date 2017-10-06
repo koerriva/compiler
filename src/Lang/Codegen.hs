@@ -14,8 +14,8 @@ import Control.Applicative
 import LLVM.AST
 import LLVM.AST.Global
 import LLVM.Prelude (ShortByteString)
-import Data.ByteString.Char8 (pack)
-import Data.ByteString.Short (toShort)
+import Data.ByteString.Char8 (pack,unpack)
+import Data.ByteString.Short (toShort,fromShort)
 import qualified LLVM.AST as AST
 
 import qualified LLVM.AST.Linkage as L
@@ -27,6 +27,9 @@ import qualified LLVM.AST.FloatingPointPredicate as FP
 -------------- Utils -------------
 l2s :: String -> ShortByteString
 l2s = toShort . pack
+
+s2l :: ShortByteString -> String
+s2l = unpack . fromShort
 -------------------------------------------------------------------------------
 -- Module Level
 -------------------------------------------------------------------------------
@@ -175,7 +178,7 @@ addBlock bname = do
   let new = emptyBlock ix
       (qname, supply) = uniqueName bname nms
 
-  modify $ \s -> s { blocks = Map.insert ((Name . toShort . pack) "ss") new bls
+  modify $ \s -> s { blocks = Map.insert ((Name . toShort . pack) qname) new bls
                    , blockCount = ix + 1
                    , names = supply
                    }
@@ -274,6 +277,9 @@ br val = terminator $ Do $ Br val []
 
 cbr :: Operand -> Name -> Name -> Codegen (Named Terminator)
 cbr cond tr fl = terminator $ Do $ CondBr cond tr fl []
+
+phi :: Type -> [(Operand, Name)] -> Codegen Operand
+phi ty incoming = instr $ Phi ty incoming []
 
 ret :: Operand -> Codegen (Named Terminator)
 ret val = terminator $ Do $ Ret (Just val) []

@@ -57,5 +57,18 @@
     <orderEntry type="library" name="exceptions-0.8.3" level="project" />
     <orderEntry type="library" name="llvm-hs-4.2.0" level="project" />
     <orderEntry type="library" name="utf8-string-1.0.1.1" level="project" />
+    <orderEntry type="library" name="Cabal-1.24.2.0" level="project" />
+    <orderEntry type="library" name="attoparsec-0.13.1.0" level="project" />
+    <orderEntry type="library" name="exceptions-0.8.3" level="project" />
+    <orderEntry type="library" name="hashable-1.2.6.1" level="project" />
+    <orderEntry type="library" name="haskeline-0.7.4.0" level="project" />
+    <orderEntry type="library" name="integer-logarithms-1.0.2" level="project" />
+    <orderEntry type="library" name="llvm-hs-4.2.0" level="project" />
+    <orderEntry type="library" name="llvm-hs-pure-4.1.0.0" level="project" />
+    <orderEntry type="library" name="process-1.4.3.0" level="project" />
+    <orderEntry type="library" name="scientific-0.3.5.2" level="project" />
+    <orderEntry type="library" name="terminfo-0.4.1.0" level="project" />
+    <orderEntry type="library" name="transformers-compat-0.5.1.4" level="project" />
+    <orderEntry type="library" name="utf8-string-1.0.1.1" level="project" />
   </component>
 </module>

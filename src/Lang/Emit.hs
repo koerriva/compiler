@@ -16,11 +16,19 @@ import Control.Monad.Except
 import Control.Applicative
 import qualified Data.Map as Map
 
+import qualified Data.ByteString.Char8 as BC8
+
 import Lang.Codegen
 import qualified Lang.Syntax as S
+import Lang.JIT
+
+one = cons $ C.Float (F.Double 1.0)
+zero = cons $ C.Float (F.Double 0.0)
+false = zero
+true = one
 
 toSig :: [String] -> [(AST.Type, AST.Name)]
-toSig = map (\x -> (double, AST.Name x))
+toSig = map (\x -> (double, AST.Name (l2s x)))
 
 codegenTop :: S.Expr -> LLVM ()
 codegenTop (S.Function name args body) = do
@@ -28,11 +36,11 @@ codegenTop (S.Function name args body) = do
   where
     fnargs = toSig args
     bls = createBlocks $ execCodegen $ do
-      entry <- addBlock entryBlockName
+      entry <- addBlock (s2l entryBlockName)
       setBlock entry
       forM args $ \a -> do
         var <- alloca double
-        store var (local (AST.Name a))
+        store var (local (AST.Name (l2s a)))
         assign a var
       cgen body >>= ret
 
@@ -40,11 +48,18 @@ codegenTop (S.Extern name args) = do
   external double name fnargs
   where fnargs = toSig args
 
+
+codegenTop (S.BinaryDef name args body) =
+  codegenTop $ S.Function ("binary" ++ name) args body
+
+codegenTop (S.UnaryDef name args body) =
+  codegenTop $ S.Function ("unary" ++ name) args body
+
 codegenTop exp = do
   define double "main" [] blks
   where
     blks = createBlocks $ execCodegen $ do
-      entry <- addBlock entryBlockName
+      entry <- addBlock (s2l entryBlockName)
       setBlock entry
       cgen exp >>= ret
 
@@ -66,26 +81,83 @@ binops = Map.fromList [
   ]
 
 cgen :: S.Expr -> Codegen AST.Operand
-cgen (S.UnaryOp op a) = do
-  cgen $ S.Call ("unary" ++ op) [a]
-cgen (S.BinaryOp "=" (S.Var var) val) = do
-  a <- getvar var
-  cval <- cgen val
-  store a cval
-  return cval
-cgen (S.BinaryOp op a b) = do
+cgen (S.UnaryOp op a) = cgen $ S.Call ("unary" ++ op) [a]
+--cgen (S.BinaryOp "=" (S.Var var) val) = do
+--  a <- getvar var
+--  cval <- cgen val
+--  store a cval
+--  return cval
+cgen (S.BinaryOp op a b) =
   case Map.lookup op binops of
-    Just f  -> do
+    Just f -> do
       ca <- cgen a
       cb <- cgen b
       f ca cb
-    Nothing -> error "No such operator"
+    Nothing -> cgen (S.Call ("binary" ++ op) [a,b])
 cgen (S.Var x) = getvar x >>= load
 cgen (S.Float n) = return $ cons $ C.Float (F.Double n)
 cgen (S.Call fn args) = do
   largs <- mapM cgen args
-  call (externf (AST.Name fn)) largs
+  call (externf (AST.Name (l2s fn))) largs
+cgen (S.If cond tr fl) = do
+  ifthen <- addBlock "if.then"
+  ifelse <- addBlock "if.else"
+  ifexit <- addBlock "if.exit"
+  -- %entry
+  ------------------
+  cond <- cgen cond
+  test <- fcmp FP.ONE false cond
+  cbr test ifthen ifelse -- Branch based on the condition
 
+  -- if.then
+  ------------------
+  setBlock ifthen
+  trval <- cgen tr       -- Generate code for the true branch
+  br ifexit              -- Branch to the merge block
+  ifthen <- getBlock
+
+  -- if.else
+  ------------------
+  setBlock ifelse
+  flval <- cgen fl       -- Generate code for the false branch
+  br ifexit              -- Branch to the merge block
+  ifelse <- getBlock
+
+  -- if.exit
+  ------------------
+  setBlock ifexit
+  phi double [(trval, ifthen), (flval, ifelse)]
+
+cgen (S.For ivar start cond step body) = do
+  forloop <- addBlock "for.loop"
+  forexit <- addBlock "for.exit"
+
+  -- %entry
+  ------------------
+  i <- alloca double
+  istart <- cgen start           -- Generate loop variable initial value
+  stepval <- cgen step           -- Generate loop variable step
+
+  store i istart                 -- Store the loop variable initial value
+  assign ivar i                  -- Assign loop variable to the variable name
+  br forloop                     -- Branch to the loop body block
+
+  -- for.loop
+  ------------------
+  setBlock forloop
+  cgen body                      -- Generate the loop body
+  ival <- load i                 -- Load the current loop iteration
+  inext <- fadd ival stepval     -- Increment loop variable
+  store i inext
+
+  cond <- cgen cond              -- Generate the loop condition
+  test <- fcmp FP.ONE false cond -- Test if the loop condition is True ( 1.0 )
+  cbr test forloop forexit       -- Generate the loop condition
+
+  setBlock forexit
+  return zero
+
+cgen x = error (show x)
 -------------------------------------------------------------------------------
 -- Compilation
 -------------------------------------------------------------------------------
@@ -93,12 +165,11 @@ cgen (S.Call fn args) = do
 liftError :: ExceptT String IO a -> IO a
 liftError = runExceptT >=> either fail return
 
+liftExcept :: ExceptT String IO a -> IO a
+liftExcept = runExceptT >=> either fail return
+
 codegen :: AST.Module -> [S.Expr] -> IO AST.Module
-codegen mod fns = withContext $ \context ->
-  liftError $ withModuleFromAST context newast $ \m -> do
-    llstr <- moduleLLVMAssembly m
-    putStrLn llstr
-    return newast
+codegen mod fns = runJIT oldast
   where
-    modn    = mapM codegenTop fns
-newast = runLLVM mod modn
+    modn = mapM codegenTop fns
+    oldast = runLLVM mod modn
