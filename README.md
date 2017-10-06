@@ -1,3 +1,3 @@
-# compiler
+# compiler for lisp
 
-add description of compiler here
+http://www.stephendiehl.com/llvm/
