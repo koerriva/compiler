@@ -1,5 +1,7 @@
 # Created by .ignore support plugin (hsz.mobi)
 将删除 .gitignore
-将删除 .idea/workspace.xml
+将删除 .idea/
 将删除 .stack-work/
 将删除 out/
+将删除 Makefile
+将删除 lib/cbits.so
