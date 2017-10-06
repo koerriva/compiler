@@ -31,47 +31,56 @@ op = do
   return o
 
 binops = [[binary "=" Ex.AssocLeft]
-        ,[binary "*" Ex.AssocLeft,
-          binary "/" Ex.AssocLeft]
-        ,[binary "+" Ex.AssocLeft,
-          binary "-" Ex.AssocLeft]
-        ,[binary "<" Ex.AssocLeft]]
-
+        ,[binary "*" Ex.AssocLeft,binary "/" Ex.AssocLeft]
+        ,[binary "+" Ex.AssocLeft,binary "-" Ex.AssocLeft]
+        ,[binary "<" Ex.AssocLeft,binary ">" Ex.AssocLeft]]
+table = ["+","-","*","/",">","<","="]
+binaryOp =
+  parens $ do
+    name <- op
+    f1 <- factor
+    f2 <- factor
+    return $ BinaryOp name f1 f2
 expr :: Parser Expr
-expr =  Ex.buildExpressionParser (binops ++ [[unop],[binop]]) factor
+--expr =  Ex.buildExpressionParser (binops ++ [[unop],[binop]]) factor
+expr = try binaryOp
+  <|> call
 
 variable :: Parser Expr
 variable = Var <$> identifier
 
 function :: Parser Expr
-function = do
+function = parens $ do
   reserved "def"
   name <- identifier
-  args <- parens $ many identifier
+  args <- brackets $ many identifier
   body <- expr
   return $ Function name args body
 
 extern :: Parser Expr
-extern = do
-  reserved "extern"
+extern = parens $ do
+  reserved "ffi"
   name <- identifier
-  args <- parens $ many identifier
+  args <- brackets $ many identifier
   return $ Extern name args
 
 call :: Parser Expr
-call = do
-  name <- identifier
-  args <- parens $ commaSep expr
-  return $ Call name args
+call =
+  parens $ do
+    name <- identifier
+    args <- many factor
+    if name == "if"
+      then return $ If (head args) (args !! 1) (args !! 2)
+      else return $ Call name args
 
 ifthen :: Parser Expr
 ifthen = do
   reserved "if"
-  cond <- expr
-  reserved "then"
-  tr <- expr
-  reserved "else"
-  fl <- expr
+  cond <- factor
+--  reserved "then"
+  tr <- factor
+--  reserved "else"
+  fl <- factor
   return $ If cond tr fl
 
 for :: Parser Expr
@@ -122,18 +131,16 @@ binarydef = do
 factor :: Parser Expr
 factor = try floating
       <|> try int
-      <|> try call
       <|> try variable
-      <|> ifthen
       <|> try letins
       <|> for
-      <|> (parens expr)
+      <|> expr
 
 defn :: Parser Expr
 defn = try extern
     <|> try function
-    <|> try unarydef
-    <|> try binarydef
+--    <|> try unarydef
+--    <|> try binarydef
     <|> expr
 
 contents :: Parser a -> Parser a
@@ -144,13 +151,10 @@ contents p = do
   return r
 
 toplevel :: Parser [Expr]
-toplevel = many $ do
-    def <- defn
-    reservedOp ";"
-    return def
+toplevel = many defn
 
 parseExpr :: String -> Either ParseError Expr
-parseExpr = parse (contents expr) "<stdin>"
+parseExpr = parse (contents defn) "<eval>"
 
 parseToplevel :: String -> Either ParseError [Expr]
 parseToplevel = parse (contents toplevel) "<stdin>"
