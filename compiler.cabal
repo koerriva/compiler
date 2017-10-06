@@ -33,7 +33,7 @@ library
 executable compiler
   hs-source-dirs:      app
   main-is:             Main.hs
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -lcbits
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
                      , compiler
                      , parsec

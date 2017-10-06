@@ -82,11 +82,17 @@ binops = Map.fromList [
 
 cgen :: S.Expr -> Codegen AST.Operand
 cgen (S.UnaryOp op a) = cgen $ S.Call ("unary" ++ op) [a]
---cgen (S.BinaryOp "=" (S.Var var) val) = do
---  a <- getvar var
---  cval <- cgen val
---  store a cval
---  return cval
+cgen (S.Let a b c) = do
+  i <- alloca double
+  val <- cgen b
+  store i val
+  assign a i
+  cgen c
+cgen (S.BinaryOp "=" (S.Var var) val) = do
+  a <- getvar var
+  cval <- cgen val
+  store a cval
+  return cval
 cgen (S.BinaryOp op a b) =
   case Map.lookup op binops of
     Just f -> do
@@ -95,6 +101,7 @@ cgen (S.BinaryOp op a b) =
       f ca cb
     Nothing -> cgen (S.Call ("binary" ++ op) [a,b])
 cgen (S.Var x) = getvar x >>= load
+cgen (S.Int n) = return $ cons $ C.Float (F.Double (fromIntegral n))
 cgen (S.Float n) = return $ cons $ C.Float (F.Double n)
 cgen (S.Call fn args) = do
   largs <- mapM cgen args
@@ -162,14 +169,9 @@ cgen x = error (show x)
 -- Compilation
 -------------------------------------------------------------------------------
 
-liftError :: ExceptT String IO a -> IO a
-liftError = runExceptT >=> either fail return
-
-liftExcept :: ExceptT String IO a -> IO a
-liftExcept = runExceptT >=> either fail return
-
 codegen :: AST.Module -> [S.Expr] -> IO AST.Module
-codegen mod fns = runJIT oldast
-  where
-    modn = mapM codegenTop fns
-    oldast = runLLVM mod modn
+codegen modo fns = do
+  let modn = mapM codegenTop fns
+      ast  = runLLVM modo modn
+  runJIT ast
+  return ast

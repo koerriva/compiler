@@ -30,7 +30,8 @@ op = do
   whitespace
   return o
 
-binops = [[binary "*" Ex.AssocLeft,
+binops = [[binary "=" Ex.AssocLeft]
+        ,[binary "*" Ex.AssocLeft,
           binary "/" Ex.AssocLeft]
         ,[binary "+" Ex.AssocLeft,
           binary "-" Ex.AssocLeft]
@@ -87,6 +88,18 @@ for = do
   body <- expr
   return $ For var start cond step body
 
+letins :: Parser Expr
+letins = do
+  reserved "var"
+  defs <- commaSep $ do
+    var <- identifier
+    reservedOp "="
+    val <- expr
+    return (var, val)
+  reserved "in"
+  body <- expr
+  return $ foldr (uncurry Let) body defs
+
 unarydef :: Parser Expr
 unarydef = do
   reserved "def"
@@ -112,6 +125,7 @@ factor = try floating
       <|> try call
       <|> try variable
       <|> ifthen
+      <|> try letins
       <|> for
       <|> (parens expr)
 

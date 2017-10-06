@@ -3,7 +3,8 @@ module Lang.Syntax where
 type Name = String
 
 data Expr
-  = Float Double
+  = Int Integer
+  | Float Double
   | Var String
   | Call Name [Expr]
   | Function Name [Name] Expr
@@ -12,7 +13,7 @@ data Expr
   | UnaryOp Name Expr
   | If Expr Expr Expr
   | For Name Expr Expr Expr Expr
-  | Let Name Expr Expr
   | BinaryDef Name [Name] Expr
   | UnaryDef Name [Name] Expr
+  | Let Name Expr Expr
   deriving (Eq, Ord, Show)

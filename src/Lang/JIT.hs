@@ -31,14 +31,16 @@ runJIT mod =
     jit context $ \executionEngine ->
       withModuleFromAST context mod $ \m ->
         withPassManager passes $ \pm -> do
+          runPassManager pm m
           optmod <- moduleAST m
           s <- moduleLLVMAssembly m
           BC8.putStrLn s
+
           EE.withModuleInEngine executionEngine m $ \ee -> do
             mainfn <- EE.getFunction ee (AST.Name "main")
             case mainfn of
               Just fn -> do
                 res <- run fn
-                BC8.putStrLn $ BC8.pack $ "eval:"++show res
+                BC8.putStrLn $ BC8.pack $ "Eval:"++show res
               Nothing -> return ()
           return optmod
