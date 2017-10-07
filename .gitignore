@@ -4,3 +4,5 @@
 out/
 lib/cbits.so
 *.iml
+libx.o
+x.out
