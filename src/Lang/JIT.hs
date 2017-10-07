@@ -7,6 +7,8 @@ import LLVM.PassManager
 import qualified LLVM.AST as AST
 import qualified LLVM.ExecutionEngine as EE
 import qualified Data.ByteString.Char8 as BC8
+import qualified LLVM.Internal.Target as Target
+import LLVM.Internal.FFI.Target (createTargetMachine)
 import Foreign.Ptr (FunPtr,castFunPtr)
 
 foreign import ccall "dynamic" haskFun :: FunPtr (IO Double) -> (IO Double)
@@ -33,8 +35,11 @@ runJIT mod =
         withPassManager passes $ \pm -> do
           runPassManager pm m
           optmod <- moduleAST m
+          -- LLVM汇编
           s <- moduleLLVMAssembly m
           BC8.putStrLn s
+          -- 生成文件
+          compileToFile m
 
           EE.withModuleInEngine executionEngine m $ \ee -> do
             mainfn <- EE.getFunction ee (AST.Name "main")
@@ -44,3 +49,14 @@ runJIT mod =
                 BC8.putStrLn $ BC8.pack $ "Eval:"++show res
               Nothing -> return ()
           return optmod
+
+compileToFile :: Module -> IO ()
+compileToFile m = do
+  Target.initializeNativeTarget
+  Target.initializeAllTargets
+  Target.withHostTargetMachine (genObjectFile m)
+  where
+    genObjectFile :: Module -> Target.TargetMachine -> IO ()
+    genObjectFile mod targetMachine = writeObjectToFile targetMachine (File "libx.o") mod
+
+

@@ -1,3 +1,2 @@
-(ffi add [x y])
-(add 1 2)
-
+(ffi putchard [x])
+(putchard 98)
