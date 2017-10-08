@@ -10,6 +10,7 @@ import qualified Data.ByteString.Char8 as BC8
 import qualified LLVM.Internal.Target as Target
 import LLVM.Internal.FFI.Target (createTargetMachine)
 import Foreign.Ptr (FunPtr,castFunPtr)
+import System.Process
 
 foreign import ccall "dynamic" haskFun :: FunPtr (IO Double) -> (IO Double)
 
@@ -57,6 +58,9 @@ compileToFile m = do
   Target.withHostTargetMachine (genObjectFile m)
   where
     genObjectFile :: Module -> Target.TargetMachine -> IO ()
-    genObjectFile mod targetMachine = writeObjectToFile targetMachine (File "libx.o") mod
+    genObjectFile mod tm = do
+      let object = "bin/main.o"
+      writeObjectToFile tm (File object) mod
+
 
 

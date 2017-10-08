@@ -28,6 +28,7 @@ library
                     ,  llvm-hs
                     ,  containers
                     ,  bytestring
+                    ,  process
   default-language:    Haskell2010
 
 executable compiler

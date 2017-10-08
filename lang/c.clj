@@ -1,2 +1,6 @@
 (ffi putchard [x])
-(putchard 98)
+(ffi print [str])
+(def main[args]
+  (putchard 99)
+  (putchard 100)
+  (print "sss"))

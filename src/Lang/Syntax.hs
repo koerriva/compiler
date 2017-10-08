@@ -5,9 +5,12 @@ type Name = String
 data Expr
   = Int Integer
   | Float Double
+  | Char Char
+  | String [Char]
   | Var String
   | Call Name [Expr]
-  | Function Name [Name] Expr
+  | Do [Expr]
+  | Function Name [Name] [Expr]
   | Extern Name [Name]
   | BinaryOp Name Expr Expr
   | UnaryOp Name Expr

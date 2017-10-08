@@ -7,6 +7,7 @@ import LLVM.Context
 
 import qualified LLVM.AST as AST
 import qualified LLVM.AST.Constant as C
+import qualified LLVM.AST.Type as T
 import qualified LLVM.AST.Float as F
 import qualified LLVM.AST.FloatingPointPredicate as FP
 
@@ -22,10 +23,13 @@ import Lang.Codegen
 import qualified Lang.Syntax as S
 import Lang.JIT
 
+import Data.Char
+
 one = cons $ C.Float (F.Double 1.0)
 zero = cons $ C.Float (F.Double 0.0)
 false = zero
 true = one
+charType = 8
 
 toSig :: [String] -> [(AST.Type, AST.Name)]
 toSig = map (\x -> (double, AST.Name (l2s x)))
@@ -42,26 +46,26 @@ codegenTop (S.Function name args body) = do
         var <- alloca double
         store var (local (AST.Name (l2s a)))
         assign a var
-      cgen body >>= ret
+      cgen (S.Do body) >>= ret
 
 codegenTop (S.Extern name args) = do
   external double name fnargs
   where fnargs = toSig args
 
 
-codegenTop (S.BinaryDef name args body) =
-  codegenTop $ S.Function ("binary" ++ name) args body
+--codegenTop (S.BinaryDef name args body) =
+--  codegenTop $ S.Function ("binary" ++ name) args body
+--
+--codegenTop (S.UnaryDef name args body) =
+--  codegenTop $ S.Function ("unary" ++ name) args body
 
-codegenTop (S.UnaryDef name args body) =
-  codegenTop $ S.Function ("unary" ++ name) args body
-
-codegenTop exp = do
-  define double "main" [] blks
-  where
-    blks = createBlocks $ execCodegen $ do
-      entry <- addBlock (s2l entryBlockName)
-      setBlock entry
-      cgen exp >>= ret
+--codegenTop exp = do
+--  define double "main" [] blks
+--  where
+--    blks = createBlocks $ execCodegen $ do
+--      entry <- addBlock (s2l entryBlockName)
+--      setBlock entry
+--      cgen exp >>= ret
 
 -------------------------------------------------------------------------------
 -- Operations
@@ -101,11 +105,18 @@ cgen (S.BinaryOp op a b) =
       f ca cb
     Nothing -> cgen (S.Call ("binary" ++ op) [a,b])
 cgen (S.Var x) = getvar x >>= load
-cgen (S.Int n) = return $ cons $ C.Float (F.Double (fromIntegral n))
+cgen (S.Int n) = return $ cons $ C.Int 64 (fromIntegral n)
 cgen (S.Float n) = return $ cons $ C.Float (F.Double n)
+cgen (S.Char c) = return $ cons $ C.Int charType ((fromIntegral . digitToInt) c)
+cgen (S.String s) = do
+  let ls = map (C.Int charType . fromIntegral . ord) s
+  return $ cons $ C.Array (T.IntegerType charType) ls
 cgen (S.Call fn args) = do
   largs <- mapM cgen args
   call (externf (AST.Name (l2s fn))) largs
+cgen (S.Do calls) = do
+  rt <- mapM cgen calls
+  return $ last rt
 cgen (S.If cond tr fl) = do
   ifthen <- addBlock "if.then"
   ifelse <- addBlock "if.else"

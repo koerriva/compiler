@@ -8,5 +8,5 @@ test: lang/c.clj
 	stack exec compiler lang/c.clj
 	gcc libx.o lib/cbits.so -o x.out
 	./x.out
-clean: *.o *.out lib/*.so
+clean: 
 	rm *.o *.out lib/*.so

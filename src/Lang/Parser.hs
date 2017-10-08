@@ -6,7 +6,6 @@ import Control.Applicative ((<$>))
 
 import qualified Text.Parsec.Expr as Ex
 import qualified Text.Parsec.Token as Tok
-
 import Lang.Lexer
 import Lang.Syntax
 
@@ -17,6 +16,16 @@ int = do
 
 floating :: Parser Expr
 floating = Float <$> float
+
+chr :: Parser Expr
+chr = Char <$> do
+  char '\''
+  c <- letter <|> alphaNum
+  char '\''
+  return c
+
+str :: Parser Expr
+str = String <$> do{char '"';s <- many (letter <|> alphaNum);char '"';return s}
 
 binop = Ex.Infix (BinaryOp <$> op) Ex.AssocLeft
 unop = Ex.Prefix (UnaryOp <$> op)
@@ -54,7 +63,7 @@ function = parens $ do
   reserved "def"
   name <- identifier
   args <- brackets $ many identifier
-  body <- expr
+  body <- many expr
   return $ Function name args body
 
 extern :: Parser Expr
@@ -67,11 +76,12 @@ extern = parens $ do
 call :: Parser Expr
 call =
   parens $ do
-    name <- identifier
+    name <- choice [do{reserved "if";return "if"},do{reserved "do";return "do"},identifier]
     args <- many factor
-    if name == "if"
-      then return $ If (head args) (args !! 1) (args !! 2)
-      else return $ Call name args
+    case name of
+      "if" -> return $ If (head args) (args !! 1) (args !! 2)
+      "do" -> return $ Do args
+      _    -> return $ Call name args
 
 ifthen :: Parser Expr
 ifthen = do
@@ -131,6 +141,8 @@ binarydef = do
 factor :: Parser Expr
 factor = try floating
       <|> try int
+      <|> try chr
+      <|> try str
       <|> try variable
       <|> try letins
       <|> for
@@ -141,7 +153,7 @@ defn = try extern
     <|> try function
 --    <|> try unarydef
 --    <|> try binarydef
-    <|> expr
+--    <|> expr
 
 contents :: Parser a -> Parser a
 contents p = do
