@@ -1,12 +1,12 @@
 clib: lib/cbits.c
 	gcc -fPIC -shared lib/cbits.c -o lib/cbits.so
+install-clib: lib/cbits.so
 	sudo cp lib/cbits.so /usr/lib
-test: lang/c.clj
-	gcc -fPIC -shared lib/cbits.c -o lib/cbits.so
+	sudo ln -sf /usr/lib/cbits.so /usr/lib/libcbits.so
+test: lang/c.clj lib/cbits.so
 	stack clean
 	stack build
 	stack exec compiler lang/c.clj
-	gcc libx.o lib/cbits.so -o x.out
-	./x.out
+	gcc main.o lib/cbits.so -o main.out
 clean: 
 	rm *.o *.out lib/*.so

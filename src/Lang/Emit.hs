@@ -32,24 +32,25 @@ true = one
 charType = 8
 
 toSig :: [String] -> [(AST.Type, AST.Name)]
-toSig = map (\x -> (double, AST.Name (l2s x)))
+toSig = map (\x -> (int64, AST.Name (l2s x)))
 
 codegenTop :: S.Expr -> LLVM ()
-codegenTop (S.Function name args body) = do
-  define double name fnargs bls
+codegenTop (S.Function name args body) = define double name fnargs bls
   where
     fnargs = toSig args
-    bls = createBlocks $ execCodegen $ do
-      entry <- addBlock (s2l entryBlockName)
-      setBlock entry
-      forM args $ \a -> do
-        var <- alloca double
-        store var (local (AST.Name (l2s a)))
-        assign a var
-      cgen (S.Do body) >>= ret
+    bls =
+      createBlocks $
+      execCodegen $ do
+        entry <- addBlock (s2l entryBlockName)
+        setBlock entry
+        forM_ args $
+          \a ->
+            do var <- alloca double
+               store var (local (AST.Name (l2s a)))
+               assign a var
+               cgen (S.Do body) >>= ret
 
-codegenTop (S.Extern name args) = do
-  external double name fnargs
+codegenTop (S.Extern name args) = external int64 name fnargs
   where fnargs = toSig args
 
 

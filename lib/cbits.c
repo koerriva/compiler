@@ -1,17 +1,9 @@
 #include "stdio.h"
 
-double putchard(double x) {
-    putchar((char)x);
+int print(char str[]) {
+    for(int i=0;i<sizeof(str);i++){
+        putchar(str[i]);
+    }
     fflush(stdout);
-    return 0;
-}
-
-double printd(double X) {
-  printf("%f\n", X);
-  return 0;
-}
-
-double print(char str[]) {
-    printf("%s",str);
     return 0;
 }

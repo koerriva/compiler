@@ -59,7 +59,7 @@ compileToFile m = do
   where
     genObjectFile :: Module -> Target.TargetMachine -> IO ()
     genObjectFile mod tm = do
-      let object = "bin/main.o"
+      let object = "main.o"
       writeObjectToFile tm (File object) mod
 
 

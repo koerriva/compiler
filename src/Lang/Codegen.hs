@@ -75,6 +75,15 @@ external retty label argtys = addDefn $
 double :: Type
 double = FloatingPointType DoubleFP
 
+int32 :: Type
+int32 = IntegerType 32
+
+int64 :: Type
+int64 = IntegerType 64
+
+char8 :: Type
+char8 = IntegerType 8
+
 -------------------------------------------------------------------------------
 -- Names
 -------------------------------------------------------------------------------
@@ -225,13 +234,13 @@ getvar var = do
 
 -- References
 local ::  Name -> Operand
-local = LocalReference double
+local = LocalReference int64
 
 global ::  Name -> C.Constant
-global = C.GlobalReference double
+global = C.GlobalReference int64
 
 externf :: Name -> Operand
-externf = ConstantOperand . C.GlobalReference double
+externf = ConstantOperand . C.GlobalReference int64
 
 -- Arithmetic and Constants
 fadd :: Operand -> Operand -> Codegen Operand
@@ -260,7 +269,8 @@ toArgs = map (\x -> (x, []))
 
 -- Effects
 call :: Operand -> [Operand] -> Codegen Operand
-call fn args = instr $ Call Nothing CC.C [] (Right fn) (toArgs args) [] []
+call fn args = do
+  instr $ Call Nothing CC.C [] (Right fn) (toArgs args) [] []
 
 alloca :: Type -> Codegen Operand
 alloca ty = instr $ Alloca ty Nothing 0 []
