@@ -25,19 +25,20 @@ import Lang.JIT
 
 import Data.Char
 
-one = cons $ C.Float (F.Double 1.0)
-zero = cons $ C.Float (F.Double 0.0)
+one = cons $ C.Int intSize 1
+zero = cons $ C.Int intSize 0
 false = zero
 true = one
-charType = 8
+intSize = 64
+charSize = 8
 
-toSig :: [String] -> [(AST.Type, AST.Name)]
-toSig = map (\x -> (int64, AST.Name (l2s x)))
+toSig :: S.SignType -> [String] -> [(AST.Type, AST.Name)]
+toSig (S.SignType tin tout) = map (\(t,arg) -> (int64, AST.Name (l2s arg))) . (zip tin)
 
 codegenTop :: S.Expr -> LLVM ()
-codegenTop (S.Function name args body) = define double name fnargs bls
+codegenTop (S.Function name types args body) = define int64 name fnargs bls
   where
-    fnargs = toSig args
+    fnargs = toSig types args
     bls =
       createBlocks $
       execCodegen $ do
@@ -45,13 +46,13 @@ codegenTop (S.Function name args body) = define double name fnargs bls
         setBlock entry
         forM_ args $
           \a ->
-            do var <- alloca double
+            do var <- alloca int64
                store var (local (AST.Name (l2s a)))
                assign a var
                cgen (S.Do body) >>= ret
 
-codegenTop (S.Extern name args) = external int64 name fnargs
-  where fnargs = toSig args
+codegenTop (S.Extern name types args) = external int64 name fnargs
+  where fnargs = toSig types args
 
 
 --codegenTop (S.BinaryDef name args body) =
@@ -75,7 +76,7 @@ codegenTop (S.Extern name args) = external int64 name fnargs
 lt :: AST.Operand -> AST.Operand -> Codegen AST.Operand
 lt a b = do
   test <- fcmp FP.ULT a b
-  uitofp double test
+  uitofp int64 test
 
 binops = Map.fromList [
       ("+", fadd)
@@ -88,7 +89,7 @@ binops = Map.fromList [
 cgen :: S.Expr -> Codegen AST.Operand
 cgen (S.UnaryOp op a) = cgen $ S.Call ("unary" ++ op) [a]
 cgen (S.Let a b c) = do
-  i <- alloca double
+  i <- alloca int64
   val <- cgen b
   store i val
   assign a i
@@ -106,12 +107,12 @@ cgen (S.BinaryOp op a b) =
       f ca cb
     Nothing -> cgen (S.Call ("binary" ++ op) [a,b])
 cgen (S.Var x) = getvar x >>= load
-cgen (S.Int n) = return $ cons $ C.Int 64 (fromIntegral n)
+cgen (S.Int n) = return $ cons $ C.Int intSize (fromIntegral n)
 cgen (S.Float n) = return $ cons $ C.Float (F.Double n)
-cgen (S.Char c) = return $ cons $ C.Int charType ((fromIntegral . digitToInt) c)
+cgen (S.Char c) = return $ cons $ C.Int charSize ((fromIntegral . digitToInt) c)
 cgen (S.String s) = do
-  let ls = map (C.Int charType . fromIntegral . ord) s
-  return $ cons $ C.Array (T.IntegerType charType) ls
+  let ls = map (C.Int charSize . fromIntegral . ord) s
+  return $ cons $ C.Array (T.IntegerType charSize) ls
 cgen (S.Call fn args) = do
   largs <- mapM cgen args
   call (externf (AST.Name (l2s fn))) largs
@@ -145,7 +146,7 @@ cgen (S.If cond tr fl) = do
   -- if.exit
   ------------------
   setBlock ifexit
-  phi double [(trval, ifthen), (flval, ifelse)]
+  phi int64 [(trval, ifthen), (flval, ifelse)]
 
 cgen (S.For ivar start cond step body) = do
   forloop <- addBlock "for.loop"
@@ -153,7 +154,7 @@ cgen (S.For ivar start cond step body) = do
 
   -- %entry
   ------------------
-  i <- alloca double
+  i <- alloca int64
   istart <- cgen start           -- Generate loop variable initial value
   stepval <- cgen step           -- Generate loop variable step
 

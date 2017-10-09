@@ -58,20 +58,40 @@ expr = try binaryOp
 variable :: Parser Expr
 variable = Var <$> identifier
 
+key :: Parser Expr
+key = do
+  char ':'
+  String s <- str
+  return $ Key s
+
+signType :: Parser SignType
+signType = do
+  reservedOp ":"
+  reserved "in"
+  tin <- brackets $ sepBy (many (letter <|> alphaNum)) (char ',' <|> space)
+  reservedOp ":"
+  reserved "out"
+  tout <- many (letter <|> alphaNum)
+  return $ SignType (map read tin) (read tout)
+
 function :: Parser Expr
-function = parens $ do
-  reserved "def"
-  name <- identifier
-  args <- brackets $ many identifier
-  body <- many expr
-  return $ Function name args body
+function =
+  parens $ do
+    reserved "defn"
+    name <- identifier
+    types <- braces signType
+    args <- brackets $ many identifier
+    body <- many expr
+    return $ Function name types args body
 
 extern :: Parser Expr
-extern = parens $ do
-  reserved "ffi"
-  name <- identifier
-  args <- brackets $ many identifier
-  return $ Extern name args
+extern =
+  parens $ do
+    reserved "ffi"
+    name <- identifier
+    types <- braces signType
+    args <- brackets $ many identifier
+    return $ Extern name types args
 
 call :: Parser Expr
 call =
@@ -150,7 +170,7 @@ factor = try floating
 
 defn :: Parser Expr
 defn = try extern
-    <|> try function
+    <|> function
 --    <|> try unarydef
 --    <|> try binarydef
 --    <|> expr
