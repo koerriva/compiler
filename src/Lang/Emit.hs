@@ -22,6 +22,8 @@ import Lang.Codegen
 import qualified Lang.Syntax as S
 import Lang.JIT
 
+import Debug.Trace
+
 one = cons $ C.Float (F.Double 1.0)
 zero = cons $ C.Float (F.Double 0.0)
 false = zero
