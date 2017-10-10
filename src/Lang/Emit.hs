@@ -24,6 +24,7 @@ import qualified Lang.Syntax as S
 import Lang.JIT
 
 import Data.Char
+import Debug.Trace
 
 one = cons $ C.Int intSize 1
 zero = cons $ C.Int intSize 0
@@ -32,11 +33,11 @@ true = one
 intSize = 64
 charSize = 8
 
-toSig :: S.SignType -> [String] -> [(AST.Type, AST.Name)]
-toSig (S.SignType tin tout) = map (\(t,arg) -> (int64, AST.Name (l2s arg))) . (zip tin)
+toSig :: S.SignType -> [String] -> ([(AST.Type, AST.Name)],AST.Type)
+toSig (S.SignType tin tout) args = (map (\(t,arg) -> (int64, AST.Name (l2s arg))) (zip tin args),int64)
 
 codegenTop :: S.Expr -> LLVM ()
-codegenTop (S.Function name types args body) = define int64 name fnargs bls
+codegenTop (S.Function name types args body) = define (snd fnargs) name (fst fnargs) bls
   where
     fnargs = toSig types args
     bls =
@@ -45,13 +46,15 @@ codegenTop (S.Function name types args body) = define int64 name fnargs bls
         entry <- addBlock (s2l entryBlockName)
         setBlock entry
         forM_ args $
-          \a ->
-            do var <- alloca int64
-               store var (local (AST.Name (l2s a)))
-               assign a var
-               cgen (S.Do body) >>= ret
+          \a -> do
+            traceShowM (a,args)
+            var <- alloca int32
+            traceShowM (a,var,args)
+            store var (local (AST.Name (l2s a)))
+            assign a var
+            cgen (S.Do body) >>= ret
 
-codegenTop (S.Extern name types args) = external int64 name fnargs
+codegenTop (S.Extern name types args) = external (snd fnargs) name (fst fnargs)
   where fnargs = toSig types args
 
 
@@ -106,7 +109,9 @@ cgen (S.BinaryOp op a b) =
       cb <- cgen b
       f ca cb
     Nothing -> cgen (S.Call ("binary" ++ op) [a,b])
-cgen (S.Var x) = getvar x >>= load
+cgen (S.Var x) = do
+--  traceM ("Var "++x)
+  getvar x >>= load
 cgen (S.Int n) = return $ cons $ C.Int intSize (fromIntegral n)
 cgen (S.Float n) = return $ cons $ C.Float (F.Double n)
 cgen (S.Char c) = return $ cons $ C.Int charSize ((fromIntegral . digitToInt) c)

@@ -24,6 +24,8 @@ import qualified LLVM.AST.Attribute as A
 import qualified LLVM.AST.CallingConvention as CC
 import qualified LLVM.AST.FloatingPointPredicate as FP
 
+import Debug.Trace
+
 -------------- Utils -------------
 l2s :: String -> ShortByteString
 l2s = toShort . pack
@@ -49,23 +51,25 @@ addDefn d = do
   modify $ \s -> s { moduleDefinitions = defs ++ [d] }
 
 define ::  Type -> String -> [(Type, Name)] -> [BasicBlock] -> LLVM ()
-define retty label argtys body = addDefn $
-  GlobalDefinition $ functionDefaults {
-    name        = (Name . l2s) label
-  , parameters  = ([Parameter ty nm [] | (ty, nm) <- argtys], False)
-  , returnType  = retty
-  , basicBlocks = body
-  }
+define retty label argtys body = do
+  addDefn $
+    GlobalDefinition $ functionDefaults {
+      name        = (Name . l2s) label
+    , parameters  = ([Parameter ty nm [] | (ty, nm) <- argtys], False)
+    , returnType  = retty
+    , basicBlocks = body
+    }
 
 external ::  Type -> String -> [(Type, Name)] -> LLVM ()
-external retty label argtys = addDefn $
-  GlobalDefinition $ functionDefaults {
-    name        = (Name . l2s) label
-  , linkage     = L.External
-  , parameters  = ([Parameter ty nm [] | (ty, nm) <- argtys], False)
-  , returnType  = retty
-  , basicBlocks = []
-  }
+external retty label argtys = do
+  addDefn $
+    GlobalDefinition $ functionDefaults {
+      name        = (Name . l2s) label
+    , linkage     = L.External
+    , parameters  = ([Parameter ty nm [] | (ty, nm) <- argtys], False)
+    , returnType  = retty
+    , basicBlocks = []
+    }
 
 ---------------------------------------------------------------------------------
 -- Types
@@ -74,6 +78,9 @@ external retty label argtys = addDefn $
 -- IEEE 754 double
 double :: Type
 double = FloatingPointType DoubleFP
+
+int :: Type
+int = double
 
 int32 :: Type
 int32 = IntegerType 32
@@ -110,7 +117,7 @@ data CodegenState
   , blockCount   :: Int                      -- Count of basic blocks
   , count        :: Word                     -- Count of unnamed instructions
   , names        :: Names                    -- Name Supply
-  } deriving Show
+  } deriving (Show)
 
 data BlockState
   = BlockState {
@@ -124,7 +131,7 @@ data BlockState
 -------------------------------------------------------------------------------
 
 newtype Codegen a = Codegen { runCodegen :: State CodegenState a }
-  deriving (Functor, Applicative, Monad, MonadState CodegenState )
+  deriving (Functor, Applicative, Monad, MonadState CodegenState)
 
 sortBlocks :: [(Name, BlockState)] -> [(Name, BlockState)]
 sortBlocks = sortBy (compare `on` (idx . snd))
@@ -269,8 +276,7 @@ toArgs = map (\x -> (x, []))
 
 -- Effects
 call :: Operand -> [Operand] -> Codegen Operand
-call fn args = do
-  instr $ Call Nothing CC.C [] (Right fn) (toArgs args) [] []
+call fn args = instr $ Call Nothing CC.C [] (Right fn) (toArgs args) [] []
 
 alloca :: Type -> Codegen Operand
 alloca ty = instr $ Alloca ty Nothing 0 []
