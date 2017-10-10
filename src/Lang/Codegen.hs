@@ -74,22 +74,21 @@ external retty label argtys = do
 ---------------------------------------------------------------------------------
 -- Types
 -------------------------------------------------------------------------------
-
+intSize = 32
+longSize = 64
+charSize = 8
 -- IEEE 754 double
 double :: Type
 double = FloatingPointType DoubleFP
 
 int :: Type
-int = double
+int = IntegerType intSize
 
-int32 :: Type
-int32 = IntegerType 32
+long :: Type
+long = IntegerType longSize
 
-int64 :: Type
-int64 = IntegerType 64
-
-char8 :: Type
-char8 = IntegerType 8
+char :: Type
+char = IntegerType charSize
 
 -------------------------------------------------------------------------------
 -- Names
@@ -108,6 +107,7 @@ uniqueName nm ns =
 -------------------------------------------------------------------------------
 
 type SymbolTable = [(String, Operand)]
+type FunctionTable = [(String,Type)]
 
 data CodegenState
   = CodegenState {
@@ -117,6 +117,7 @@ data CodegenState
   , blockCount   :: Int                      -- Count of basic blocks
   , count        :: Word                     -- Count of unnamed instructions
   , names        :: Names                    -- Name Supply
+  , funtab       :: FunctionTable            -- Function SignType List
   } deriving (Show)
 
 data BlockState
@@ -152,7 +153,7 @@ emptyBlock :: Int -> BlockState
 emptyBlock i = BlockState i [] Nothing
 
 emptyCodegen :: CodegenState
-emptyCodegen = CodegenState (Name entryBlockName) Map.empty [] 1 0 Map.empty
+emptyCodegen = CodegenState (Name entryBlockName) Map.empty [] 1 0 Map.empty []
 
 execCodegen :: Codegen a -> CodegenState
 execCodegen m = execState (runCodegen m) emptyCodegen
@@ -165,6 +166,7 @@ fresh = do
 
 instr :: Instruction -> Codegen (Operand)
 instr ins = do
+  sym <- gets symtab
   n <- fresh
   let ref = (UnName n)
   blk <- current
@@ -178,6 +180,10 @@ terminator trm = do
   modifyBlock (blk { term = Just trm })
   return trm
 
+addSignType :: String -> [Type] -> Type -> Codegen ()
+addSignType name tin tout = do
+  ftab <- gets funtab
+  modify $ \s -> s {funtab = (name, FunctionType tout tin False) : ftab}
 -------------------------------------------------------------------------------
 -- Block Stack
 -------------------------------------------------------------------------------
@@ -228,7 +234,7 @@ current = do
 assign :: String -> Operand -> Codegen ()
 assign var x = do
   lcls <- gets symtab
-  modify $ \s -> s { symtab = [(var, x)] ++ lcls }
+  modify $ \s -> s {symtab = (var, x) : lcls}
 
 getvar :: String -> Codegen Operand
 getvar var = do
@@ -237,17 +243,23 @@ getvar var = do
     Just x  -> return x
     Nothing -> error $ "Local variable not in scope: " ++ show var
 
+getftype :: String -> Codegen Type
+getftype fname = do
+  syms <- gets funtab
+  case lookup fname syms of
+    Just x -> return x
+    Nothing -> error $ "Function type not in scope: " ++ show fname
 -------------------------------------------------------------------------------
 
 -- References
 local ::  Name -> Operand
-local = LocalReference int64
+local = LocalReference int
 
 global ::  Name -> C.Constant
-global = C.GlobalReference int64
+global = C.GlobalReference int
 
 externf :: Name -> Operand
-externf = ConstantOperand . C.GlobalReference int64
+externf = ConstantOperand . C.GlobalReference int
 
 -- Arithmetic and Constants
 fadd :: Operand -> Operand -> Codegen Operand

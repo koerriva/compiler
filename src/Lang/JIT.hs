@@ -61,6 +61,3 @@ compileToFile m = do
     genObjectFile mod tm = do
       let object = "main.o"
       writeObjectToFile tm (File object) mod
-
-
-

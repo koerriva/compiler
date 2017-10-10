@@ -9,10 +9,10 @@ import qualified Text.Parsec.Token as Tok
 import Lang.Lexer
 import Lang.Syntax
 
+import Debug.Trace
+
 int :: Parser Expr
-int = do
-  n <- integer
-  return $ Float (fromInteger n)
+int = Int <$> integer
 
 floating :: Parser Expr
 floating = Float <$> float
@@ -68,10 +68,11 @@ signType :: Parser SignType
 signType = do
   reservedOp ":"
   reserved "in"
-  tin <- brackets $ sepBy (many (letter <|> alphaNum)) (char ',' <|> space)
+  tin <- brackets $ sepBy (many letter) (char ',' <|> space)
+  traceShowM tin
   reservedOp ":"
   reserved "out"
-  tout <- many (letter <|> alphaNum)
+  tout <- many letter
   return $ SignType (map read tin) (read tout)
 
 function :: Parser Expr

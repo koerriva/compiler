@@ -30,29 +30,32 @@ one = cons $ C.Int intSize 1
 zero = cons $ C.Int intSize 0
 false = zero
 true = one
-intSize = 64
-charSize = 8
+
+llvmType :: S.Type -> AST.Type
+llvmType S.TInt = int
+llvmType S.TFloat = double
+llvmType S.TChar = char
+llvmType S.TString = double
+llvmType _         = double
 
 toSig :: S.SignType -> [String] -> ([(AST.Type, AST.Name)],AST.Type)
-toSig (S.SignType tin tout) args = (map (\(t,arg) -> (int64, AST.Name (l2s arg))) (zip tin args),int64)
+toSig (S.SignType tin tout) args = (map (\(t,arg) -> (int, AST.Name (l2s arg))) (zip tin args),int)
 
 codegenTop :: S.Expr -> LLVM ()
-codegenTop (S.Function name types args body) = define (snd fnargs) name (fst fnargs) bls
+codegenTop (S.Function name (S.SignType tin tout) args body) = define (snd fnargs) name (fst fnargs) bls
   where
-    fnargs = toSig types args
+    fnargs = toSig (S.SignType tin tout) args
     bls =
       createBlocks $
       execCodegen $ do
         entry <- addBlock (s2l entryBlockName)
         setBlock entry
-        forM_ args $
-          \a -> do
-            traceShowM (a,args)
-            var <- alloca int32
-            traceShowM (a,var,args)
-            store var (local (AST.Name (l2s a)))
-            assign a var
-            cgen (S.Do body) >>= ret
+        addSignType name (map llvmType tin) (llvmType tout)
+        forM_ (zip tin args) $ \(t,a) -> do
+          var <- alloca (llvmType t)
+          store var (local (AST.Name (l2s a)))
+          assign a var
+        cgen (S.Do body) >>= ret
 
 codegenTop (S.Extern name types args) = external (snd fnargs) name (fst fnargs)
   where fnargs = toSig types args
@@ -79,7 +82,7 @@ codegenTop (S.Extern name types args) = external (snd fnargs) name (fst fnargs)
 lt :: AST.Operand -> AST.Operand -> Codegen AST.Operand
 lt a b = do
   test <- fcmp FP.ULT a b
-  uitofp int64 test
+  uitofp int test
 
 binops = Map.fromList [
       ("+", fadd)
@@ -92,7 +95,7 @@ binops = Map.fromList [
 cgen :: S.Expr -> Codegen AST.Operand
 cgen (S.UnaryOp op a) = cgen $ S.Call ("unary" ++ op) [a]
 cgen (S.Let a b c) = do
-  i <- alloca int64
+  i <- alloca int
   val <- cgen b
   store i val
   assign a i
@@ -109,9 +112,7 @@ cgen (S.BinaryOp op a b) =
       cb <- cgen b
       f ca cb
     Nothing -> cgen (S.Call ("binary" ++ op) [a,b])
-cgen (S.Var x) = do
---  traceM ("Var "++x)
-  getvar x >>= load
+cgen (S.Var x) = getvar x >>= load
 cgen (S.Int n) = return $ cons $ C.Int intSize (fromIntegral n)
 cgen (S.Float n) = return $ cons $ C.Float (F.Double n)
 cgen (S.Char c) = return $ cons $ C.Int charSize ((fromIntegral . digitToInt) c)
@@ -151,7 +152,7 @@ cgen (S.If cond tr fl) = do
   -- if.exit
   ------------------
   setBlock ifexit
-  phi int64 [(trval, ifthen), (flval, ifelse)]
+  phi int [(trval, ifthen), (flval, ifelse)]
 
 cgen (S.For ivar start cond step body) = do
   forloop <- addBlock "for.loop"
@@ -159,7 +160,7 @@ cgen (S.For ivar start cond step body) = do
 
   -- %entry
   ------------------
-  i <- alloca int64
+  i <- alloca int
   istart <- cgen start           -- Generate loop variable initial value
   stepval <- cgen step           -- Generate loop variable step
 

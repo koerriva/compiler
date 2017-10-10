@@ -2,6 +2,8 @@ module Lang.Syntax where
 
 import Text.Read
 import Text.ParserCombinators.ReadPrec
+import Debug.Trace
+
 
 type Name = String
 
@@ -39,13 +41,18 @@ data Type
   deriving (Eq, Ord, Show)
 
 instance Read Type where
-  readPrec = do
-    a <- look
-    case a of
-      "Int"     -> return TInt
-      "Float"   -> return TFloat
-      "Char"    -> return TChar
-      "String"  -> return TString
-      _         -> error "undefined type"
+  readPrec = choice[readInt]
+    where
+      readInt = do
+        a <- look
+        skip a
+        case a of
+          "Int"     -> return TInt
+          "Float"   -> return TFloat
+          "String"  -> return TString
+      skip [] = return ()
+      skip (a:ls) = do
+        get
+        skip ls
 
 
