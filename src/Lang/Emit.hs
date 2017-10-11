@@ -32,14 +32,14 @@ false = zero
 true = one
 
 llvmType :: S.Type -> AST.Type
-llvmType S.TInt = int
+llvmType S.TInt = double
 llvmType S.TFloat = double
-llvmType S.TChar = char
+llvmType S.TChar = double
 llvmType S.TString = double
 llvmType _         = double
 
 toSig :: S.SignType -> [String] -> ([(AST.Type, AST.Name)],AST.Type)
-toSig (S.SignType tin tout) args = (map (\(t,arg) -> (int, AST.Name (l2s arg))) (zip tin args),int)
+toSig (S.SignType tin tout) args = (map (\(t,arg) -> (llvmType t, AST.Name (l2s arg))) (zip tin args),llvmType tout)
 
 codegenTop :: S.Expr -> LLVM ()
 codegenTop (S.Function name (S.SignType tin tout) args body) = define (snd fnargs) name (fst fnargs) bls

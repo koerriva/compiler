@@ -69,7 +69,6 @@ signType = do
   reservedOp ":"
   reserved "in"
   tin <- brackets $ sepBy (many letter) (char ',' <|> space)
-  traceShowM tin
   reservedOp ":"
   reserved "out"
   tout <- many letter
@@ -92,6 +91,7 @@ extern =
     name <- identifier
     types <- braces signType
     args <- brackets $ many identifier
+    traceShowM args
     return $ Extern name types args
 
 call :: Parser Expr
