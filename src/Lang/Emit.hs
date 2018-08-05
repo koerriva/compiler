@@ -30,7 +30,7 @@ false = zero
 true = one
 
 toSig :: [String] -> [(AST.Type, AST.Name)]
-toSig = map (\x -> (double, AST.Name (l2s x)))
+toSig = map (\x -> (double, AST.Name x))
 
 codegenTop :: S.Expr -> LLVM ()
 codegenTop (S.Function name args body) = do
@@ -38,11 +38,11 @@ codegenTop (S.Function name args body) = do
   where
     fnargs = toSig args
     bls = createBlocks $ execCodegen $ do
-      entry <- addBlock (s2l entryBlockName)
+      entry <- addBlock entryBlockName
       setBlock entry
       forM args $ \a -> do
         var <- alloca double
-        store var (local (AST.Name (l2s a)))
+        store var (local (AST.Name a))
         assign a var
       cgen body >>= ret
 
@@ -61,7 +61,7 @@ codegenTop exp = do
   define double "main" [] blks
   where
     blks = createBlocks $ execCodegen $ do
-      entry <- addBlock (s2l entryBlockName)
+      entry <- addBlock entryBlockName
       setBlock entry
       cgen exp >>= ret
 
@@ -107,7 +107,7 @@ cgen (S.Int n) = return $ cons $ C.Float (F.Double (fromIntegral n))
 cgen (S.Float n) = return $ cons $ C.Float (F.Double n)
 cgen (S.Call fn args) = do
   largs <- mapM cgen args
-  call (externf (AST.Name (l2s fn))) largs
+  call (externf (AST.Name fn)) largs
 cgen (S.If cond tr fl) = do
   ifthen <- addBlock "if.then"
   ifelse <- addBlock "if.else"

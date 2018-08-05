@@ -13,9 +13,6 @@ import Control.Applicative
 
 import LLVM.AST
 import LLVM.AST.Global
-import LLVM.Prelude (ShortByteString)
-import Data.ByteString.Char8 (pack,unpack)
-import Data.ByteString.Short (toShort,fromShort)
 import qualified LLVM.AST as AST
 
 import qualified LLVM.AST.Linkage as L
@@ -24,12 +21,6 @@ import qualified LLVM.AST.Attribute as A
 import qualified LLVM.AST.CallingConvention as CC
 import qualified LLVM.AST.FloatingPointPredicate as FP
 
--------------- Utils -------------
-l2s :: String -> ShortByteString
-l2s = toShort . pack
-
-s2l :: ShortByteString -> String
-s2l = unpack . fromShort
 -------------------------------------------------------------------------------
 -- Module Level
 -------------------------------------------------------------------------------
@@ -41,7 +32,7 @@ runLLVM :: AST.Module -> LLVM a -> AST.Module
 runLLVM mod (LLVM m) = execState m mod
 
 emptyModule :: String -> AST.Module
-emptyModule label = defaultModule { moduleName = l2s label }
+emptyModule label = defaultModule { moduleName = label }
 
 addDefn :: Definition -> LLVM ()
 addDefn d = do
@@ -51,7 +42,7 @@ addDefn d = do
 define ::  Type -> String -> [(Type, Name)] -> [BasicBlock] -> LLVM ()
 define retty label argtys body = addDefn $
   GlobalDefinition $ functionDefaults {
-    name        = (Name . l2s) label
+    name        = Name label
   , parameters  = ([Parameter ty nm [] | (ty, nm) <- argtys], False)
   , returnType  = retty
   , basicBlocks = body
@@ -60,7 +51,7 @@ define retty label argtys body = addDefn $
 external ::  Type -> String -> [(Type, Name)] -> LLVM ()
 external retty label argtys = addDefn $
   GlobalDefinition $ functionDefaults {
-    name        = (Name . l2s) label
+    name        = Name label
   , linkage     = L.External
   , parameters  = ([Parameter ty nm [] | (ty, nm) <- argtys], False)
   , returnType  = retty
@@ -73,7 +64,7 @@ external retty label argtys = addDefn $
 
 -- IEEE 754 double
 double :: Type
-double = FloatingPointType DoubleFP
+double = FloatingPointType 64 IEEE
 
 -------------------------------------------------------------------------------
 -- Names
@@ -129,7 +120,7 @@ makeBlock (l, (BlockState _ s t)) = BasicBlock l (reverse s) (maketerm t)
     maketerm (Just x) = x
     maketerm Nothing = error $ "Block has no terminator: " ++ (show l)
 
-entryBlockName :: ShortByteString
+entryBlockName :: String
 entryBlockName = "entry"
 
 emptyBlock :: Int -> BlockState
@@ -178,11 +169,11 @@ addBlock bname = do
   let new = emptyBlock ix
       (qname, supply) = uniqueName bname nms
 
-  modify $ \s -> s { blocks = Map.insert ((Name . toShort . pack) qname) new bls
+  modify $ \s -> s { blocks = Map.insert (Name qname) new bls
                    , blockCount = ix + 1
                    , names = supply
                    }
-  return ((Name . toShort . pack) qname)
+  return (Name qname)
 
 setBlock :: Name -> Codegen Name
 setBlock bname = do
